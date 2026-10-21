@@ -286,7 +286,7 @@ const BASES = {
     url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
     attr: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors', maxNativeZoom: 19 }
 };
-const S = { base: "igac", gremio: "interior", epoca: "seca", raster: "none", opac: 0.85, enlFiltro: "Alta", nodoModo: "papel",
+const S = { f4: "gremio", base: "igac", gremio: "interior", epoca: "seca", raster: "none", opac: 0.85, enlFiltro: "Alta", nodoModo: "papel",
   v: { departamentos: true, area: true, franja: true, municipios: true, sob: true, runap: false, nodos: true, enlaces: true, estrang: false, paquete: true, trampn: true, tramp: false, listas: false } };
 
 /* ---------- Mapa ---------- */
@@ -403,6 +403,8 @@ function enlPopup(p) {
   ${inPack ? `<div class="flag"><strong>Paquete de restauración (Fase 4)</strong></div>` : ""}${p.alta_ambas ? `<div class="flag">Prioridad Alta en ambas épocas</div>` : ""}</div>`;
 }
 
+const f4ok = f => S.f4 === "todos" || f.properties.gremio === S.gremio;
+const f4keys = () => S.f4 === "todos" ? Object.keys(GREMIOS) : [S.gremio];
 const gremioDefs = {
   nodos: async () => L.geoJSON(await getJSON(`nodos_${S.gremio}.geojson`), { renderer: cvsNod, style: nodoStyle,
     onEachFeature: (f, l) => l.bindPopup(() => nodoPopup(f.properties)) }),
@@ -431,7 +433,7 @@ const gremioDefs = {
     const d = await getJSON("trampolines_nodos.geojson");
     const star = c => L.divIcon({ className: "star", iconSize: [22, 22], iconAnchor: [11, 11],
       html: `<svg viewBox="0 0 24 24" width="22" height="22"><path d="M12 2.2l2.9 6.3 6.9.7-5.2 4.6 1.5 6.8L12 17.1l-6.1 3.5 1.5-6.8L2.2 9.2l6.9-.7z" fill="${c}" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg>` });
-    return L.geoJSON(d, {
+    return L.geoJSON(d, { filter: f4ok,
       pointToLayer: (f, ll) => L.marker(ll, { icon: star(gcol(f.properties.gremio)), pane: "pts", keyboard: false }),
       onEachFeature: (f, l) => { const p = f.properties, e = S.epoca;
         l.bindTooltip(String(p.id_grafo), { permanent: true, direction: "right", className: "elabel", pane: "lab", offset: [9, 0] });
@@ -440,10 +442,10 @@ const gremioDefs = {
   paquete: async () => {
     const [c, r] = await Promise.all([getJSON("paquete_corredores.geojson"), getJSON("paquete_rutas.geojson")]);
     const g = L.featureGroup();
-    L.geoJSON(c, { renderer: svgEnl, style: f => ({ color: gcol(f.properties.gremio), weight: 1, fillColor: gcol(f.properties.gremio), fillOpacity: .28 }),
+    L.geoJSON(c, { renderer: svgEnl, filter: f4ok, style: f => ({ color: gcol(f.properties.gremio), weight: 1, fillColor: gcol(f.properties.gremio), fillOpacity: .28 }),
       onEachFeature: (f, l) => { const p = f.properties; l.bindPopup(`<div class="pp"><div class="k">Paquete de restauración · Fase 4 · época seca</div><h5>${GREMIOS[p.gremio].nombre}: enlace ${esc(p.enlace)}</h5><dl><dt>Corredor</dt><dd>${nf(p.area_ha)} ha</dd></dl><div class="small" style="margin-top:6px">Combinación óptima verificada por búsqueda exhaustiva.</div></div>`);
         l.bindTooltip(esc(p.enlace), { permanent: true, direction: "right", className: "elabel", pane: "lab", offset: [8, 0] }); } }).addTo(g);
-    L.geoJSON(r, { renderer: svgEnl, interactive: false, style: f => ({ color: gcol(f.properties.gremio), weight: 1.5, fillColor: gcol(f.properties.gremio), fillOpacity: 1 }) }).addTo(g);
+    L.geoJSON(r, { renderer: svgEnl, filter: f4ok, interactive: false, style: f => ({ color: gcol(f.properties.gremio), weight: 1.5, fillColor: gcol(f.properties.gremio), fillOpacity: 1 }) }).addTo(g);
     return g;
   },
   listas: async () => {
@@ -515,9 +517,9 @@ function renderLegend() {
   const g = S.gremio, parts = [];
   const head = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span class="dot" style="background:${gcol(g)}"></span><strong style="font-family:var(--f-display);font-weight:500">${GREMIOS[g].nombre}</strong><span class="small">· ${S.epoca}</span><button class="goto" id="lgHide" style="margin-left:auto" type="button">Ocultar</button></div>`;
   if (S.raster !== "none") parts.push(`<div class="lg"><h4>${RASTERS[S.raster].t}</h4>${RASTERS[S.raster].legend()}</div>`);
-  if (S.v.paquete) parts.push(`<div class="lg"><h4>Paquete de restauración (Fase 4)</h4>${Object.keys(GREMIOS).map(k => item(gcol(k), GREMIOS[k].nombre)).join("")}<div class="small">Relleno sólido: ruta de menor costo</div></div>`);
+  if (S.v.paquete) parts.push(`<div class="lg"><h4>Paquete de restauración (Fase 4)</h4>${f4keys().map(k => item(gcol(k), GREMIOS[k].nombre)).join("")}<div class="small">Relleno sólido: ruta de menor costo</div></div>`);
   if (S.v.enlaces) parts.push(`<div class="lg"><h4>Enlaces por tipo de acción</h4>${Object.entries(TIPOS).map(([t, c]) => item(c, t, "line")).join("")}<div class="small">Grosor: prioridad del índice (${S.enlFiltro === "Alta" ? "solo Alta" : S.enlFiltro === "Media" ? "Alta y Media" : S.enlFiltro === "paquete" ? "solo paquete" : "todas"})</div></div>`);
-  if (S.v.trampn) parts.push(`<div class="lg"><h4>Trampolines prioritarios (Fase 4)</h4>${Object.keys(GREMIOS).map(k => `<div class="it"><svg width="16" height="16" viewBox="0 0 24 24" style="flex:none"><path d="M12 2.2l2.9 6.3 6.9.7-5.2 4.6 1.5 6.8L12 17.1l-6.1 3.5 1.5-6.8L2.2 9.2l6.9-.7z" fill="${gcol(k)}"/></svg><span>${GREMIOS[k].nombre}</span></div>`).join("")}</div>`);
+  if (S.v.trampn) parts.push(`<div class="lg"><h4>Trampolines prioritarios (Fase 4)</h4>${f4keys().map(k => `<div class="it"><svg width="16" height="16" viewBox="0 0 24 24" style="flex:none"><path d="M12 2.2l2.9 6.3 6.9.7-5.2 4.6 1.5 6.8L12 17.1l-6.1 3.5 1.5-6.8L2.2 9.2l6.9-.7z" fill="${gcol(k)}"/></svg><span>${GREMIOS[k].nombre}</span></div>`).join("")}</div>`);
   if (S.v.tramp) parts.push(`<div class="lg"><h4>Parches canalizados (Omniscape)</h4>${item("#f2a900", "Parche ≥ 10 ha en corredor Alta")}</div>`);
   if (S.v.estrang) parts.push(`<div class="lg"><h4>Estrangulamientos (top 30)</h4>${`<div class="it"><span class="sw pt" style="background:#fff;border:1.5px solid #08306b"></span><span>Tamaño según corriente máxima</span></div>`}</div>`);
   if (S.v.nodos) parts.push(`<div class="lg"><h4>Núcleos (nodos del grafo)</h4>${S.nodoModo === "papel" ? Object.entries(PAPEL).map(([t, c]) => item(c, t)).join("") : S.nodoModo === "prioridad" ? Object.entries(PRIO).map(([t, c]) => item(c, `Prioridad ${t.toLowerCase()}`)).join("") : item(gcol(g), "Núcleo (idoneidad ≥ 0,6)")}</div>`);
@@ -566,6 +568,7 @@ function buildPanel() {
   <div class="grp"><h2><span class="n">04</span>Escenarios de acción</h2>
     ${rowCheck("paquete", "Paquete de restauración", "8 enlaces óptimos: interior 1–2, 4–6, 26–43; frugívoras 5–6; humedales 4–63, 1–81, 1–20, 4–57")}
     ${rowCheck("trampn", "Trampolines prioritarios", "Nodos conectores: interior 26, 40, 43; frugívoras 10, 24, 61, 93; humedales 21, 44, 49")}
+    <div class="inline"><label for="f4">Gremios</label><select id="f4"><option value="gremio">solo el seleccionado</option><option value="todos">los tres (como el Mapa M11)</option></select></div>
     ${rowCheck("tramp", "Parches canalizados (Omniscape)", "Parches ≥ 10 ha con flujo canalizado dentro de corredores Alta, por gremio y época")}
   </div>
   <div class="grp"><h2><span class="n">05</span>Validación</h2>
@@ -573,6 +576,8 @@ function buildPanel() {
   </div>`;
   document.getElementById("nodoModo").value = S.nodoModo;
   document.getElementById("enlFiltro").value = S.enlFiltro;
+  document.getElementById("f4").value = S.f4;
+  document.getElementById("f4").addEventListener("change", e => { S.f4 = e.target.value; drop("paquete"); drop("trampn"); render(false); });
   el.querySelectorAll("input[type=checkbox]").forEach(i => i.addEventListener("change", () => { S.v[i.dataset.k] = i.checked; render(false); }));
   el.querySelectorAll("input[name=base]").forEach(i => i.addEventListener("change", () => { S.base = i.value; renderBase(); }));
   el.querySelectorAll("input[name=raster]").forEach(i => i.addEventListener("change", () => { S.raster = i.value; render(false); }));
