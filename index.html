@@ -292,12 +292,12 @@ const S = { f4: "gremio", base: "igac", gremio: "interior", epoca: "seca", raste
 /* ---------- Mapa ---------- */
 const map = L.map("map", { zoomControl: true, minZoom: 7, maxZoom: 18, zoomSnap: 0.25, attributionControl: true });
 map.attributionControl.setPrefix('<a href="https://leafletjs.com" target="_blank" rel="noopener">Leaflet</a>');
-const panes = [["base", 200], ["raster", 300], ["ctx", 380], ["nodos", 410], ["tramp", 415], ["enl", 420], ["pts", 430], ["lab", 440]];
+const panes = [["base", 200], ["raster", 300], ["ctx", 380], ["nodos", 410], ["ap", 412], ["tramp", 415], ["enl", 420], ["pts", 430], ["lab", 440]];
 panes.forEach(([n, z]) => { map.createPane(n).style.zIndex = z; });
 map.getPane("lab").style.pointerEvents = "none";
 map.getPane("raster").style.pointerEvents = "none";
 L.control.scale({ imperial: false, position: "bottomleft", maxWidth: 140 }).addTo(map);
-const svgCtx = L.svg({ pane: "ctx" }), svgEnl = L.svg({ pane: "enl" }), cvsNod = L.canvas({ pane: "nodos", tolerance: 2 }), cvsPts = L.canvas({ pane: "pts", tolerance: 4 }), svgTr = L.svg({ pane: "tramp" });
+const svgCtx = L.svg({ pane: "ctx" }), svgEnl = L.svg({ pane: "enl" }), cvsNod = L.canvas({ pane: "nodos", tolerance: 2 }), cvsPts = L.canvas({ pane: "pts", tolerance: 4 }), svgTr = L.svg({ pane: "tramp" }), svgAp = L.svg({ pane: "ap" });
 
 proj4.defs("EPSG:9377", "+proj=tmerc +lat_0=4 +lon_0=-73 +k=0.9992 +x_0=5000000 +y_0=2000000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs");
 const coordsEl = document.getElementById("coords");
@@ -345,17 +345,17 @@ const ctxDefs = {
   area: async () => L.geoJSON(await getJSON("area_estudio.geojson"), { renderer: svgCtx, interactive: false, style: { color: css("--ink"), weight: 1.6, fill: false } }),
   franja: async () => L.geoJSON(await getJSON("franja_10km.geojson"), { renderer: svgCtx, interactive: false, style: { color: css("--ink"), weight: 1.3, dashArray: "6 5", fill: false, opacity: .8 } }),
   municipios: async () => L.geoJSON(await getJSON("municipios.geojson"), { renderer: svgCtx,
-    style: { color: css("--land-line"), weight: 0.9, fill: true, fillOpacity: 0 },
+    style: { color: css("--land-line"), weight: 0.9, fill: false },
     onEachFeature: (f, l) => {
       l.bindTooltip(esc(f.properties.municipio), { permanent: true, direction: "center", className: "mlabel mun", pane: "lab" });
       l.bindPopup(`<div class="pp"><div class="k">Municipio</div><h5>${esc(f.properties.municipio)}</h5><dl><dt>Subregión</dt><dd>${esc(f.properties.subregion)}</dd><dt>Código DANE</dt><dd>${esc(f.properties.MPIO_CCNCT)}</dd></dl></div>`);
     } }),
   sob: async () => L.geoJSON(await getJSON("nodos_sob.geojson"), { renderer: svgCtx,
-    style: f => ({ color: f.properties.nodo.startsWith("Bosque") ? css("--sob1") : css("--sob2"), weight: 2.4, fill: true, fillOpacity: 0 }),
+    style: f => ({ color: f.properties.nodo.startsWith("Bosque") ? css("--sob1") : css("--sob2"), weight: 2.4, fill: false }),
     onEachFeature: (f, l) => l.bindPopup(`<div class="pp"><div class="k">Nodo territorial SOB</div><h5>${esc(f.properties.nodo)}</h5><dl><dt>Área</dt><dd>${nf(f.properties.area_ha)} ha</dd></dl><div class="small" style="margin-top:6px">${esc(f.properties.municipios)}</div></div>`) }),
-  runap: async () => L.geoJSON(await getJSON("runap.geojson"), { renderer: svgCtx,
-    style: { color: "#6a3d9a", weight: 1, fillColor: "#6a3d9a", fillOpacity: .18 },
-    onEachFeature: (f, l) => l.bindPopup(`<div class="pp"><div class="k">Área protegida · ${esc(f.properties.fuente)}</div><h5>${esc(f.properties.nombre)}</h5><dl><dt>Categoría</dt><dd style="font-family:inherit">${esc(f.properties.categoria)}</dd><dt>Área</dt><dd>${nf(f.properties.ha, 1)} ha</dd></dl></div>`) })
+  runap: async () => L.geoJSON(await getJSON("runap.geojson"), { renderer: svgAp,
+    style: { color: "#6a3d9a", weight: 1.2, fillColor: "#6a3d9a", fillOpacity: .22 },
+    onEachFeature: (f, l) => l.bindPopup(`<div class="pp"><div class="k">Área protegida · ${f.properties.fuente === "Ambas" ? "RUNAP y CARDIQUE" : esc(f.properties.fuente)}</div><h5>${esc(f.properties.nombre)}</h5><dl><dt>Categoría</dt><dd style="font-family:inherit">${esc(f.properties.categoria)}</dd><dt>Área</dt><dd>${nf(f.properties.ha, 1)} ha</dd></dl></div>`) })
 };
 
 function nodoStyle(f) {
